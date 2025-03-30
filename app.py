@@ -1,8 +1,12 @@
 import time
 import logging
+import uuid
+from datetime import datetime
+import os
 from flask import Flask, render_template, request, jsonify
 from azure.core.credentials import AzureKeyCredential
-from azure.ai.inference import ChatCompletionsClient  # Ensure your SDK version supports this
+from azure.ai.inference import ChatCompletionsClient
+from azure.storage.blob import BlobServiceClient
 
 # Configuration for DeepSeek‑R1 using Azure AI Inference SDK
 endpoint = "https://ai-chaouachimohamedali7466ai872562483805.services.ai.azure.com/models"
@@ -63,33 +67,14 @@ def chat():
     bot_reply = get_response(user_message)
     return jsonify({"reply": bot_reply})
 
-if __name__ == "__main__":
-    # For local testing
-    app.run(debug=True, host="0.0.0.0")
-
-import os
-from flask import request, jsonify
-from azure.storage.blob import BlobServiceClient
-from datetime import datetime
-
-# Get the connection string from environment variable
+# --- Begin Azure Blob Storage chat history functionality ---
+# Get the connection string from environment variable.
 AZURE_STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
 CONTAINER_NAME = "chat-history"  # Ensure this container exists in your storage account
-BLOB_NAME = "chat_history.txt"
 
-# Initialize the BlobServiceClient
+# Initialize the BlobServiceClient.
 blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
 container_client = blob_service_client.get_container_client(CONTAINER_NAME)
-
-def ensure_append_blob_exists():
-    """Check if the append blob exists, and create it if not."""
-    blob_client = container_client.get_blob_client(BLOB_NAME)
-    try:
-        blob_client.get_blob_properties()
-    except Exception:
-        # Create an append blob if it does not exist
-        blob_client.create_append_blob()
-    return blob_client
 
 @app.route("/save_chat", methods=["POST"])
 def save_chat():
@@ -98,12 +83,30 @@ def save_chat():
     if not chat_history:
         return jsonify({"error": "No chat history provided"}), 400
 
-    blob_client = ensure_append_blob_exists()
-    # Prepare content to append with a timestamp
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    content = f"--- Chat saved at {timestamp} UTC ---\n{chat_history}\n"
+    # Generate a unique blob name for each chat session.
+    timestamp_part = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    unique_id = uuid.uuid4().hex
+    blob_name = f"chat_history_{timestamp_part}_{unique_id}.txt"
+
+    blob_client = container_client.get_blob_client(blob_name)
+    try:
+        # Create a new append blob for this chat session.
+        blob_client.create_append_blob()
+    except Exception as e:
+        logging.error("Failed to create append blob: %s", e)
+        return jsonify({"error": "Error creating new chat blob."}), 500
+
+    # Prepare content to append with a timestamp.
+    save_timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    content = f"--- Chat saved at {save_timestamp} UTC ---\n{chat_history}\n"
     try:
         blob_client.append_block(content)
-        return jsonify({"message": "Chat history saved successfully!"}), 200
+        return jsonify({"message": f"Chat history saved successfully as {blob_name}!"}), 200
     except Exception as e:
+        logging.error("Failed to save chat history: %s", e)
         return jsonify({"error": f"Failed to save chat history: {str(e)}"}), 500
+# --- End Azure Blob Storage chat history functionality ---
+
+if __name__ == "__main__":
+    # For local testing.
+    app.run(debug=True, host="0.0.0.0")
