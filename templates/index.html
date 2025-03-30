@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat with DeepSeek‑R1</title>
+  <style>
+    /* Global dark theme styling */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 0;
+    }
+    /* Responsive chat container */
+    #chat {
+      width: 90%;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #1e1e1e;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      display: none;
+    }
+    #messages {
+      border: 1px solid #333;
+      padding: 10px;
+      height: 500px;
+      overflow-y: scroll;
+      background-color: #121212;
+    }
+    .message {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 5px;
+      line-height: 1.5;
+    }
+    .user {
+      background-color: #2c2c2c;
+      color: #9cdcfe;
+    }
+    .bot {
+      background-color: #333;
+      color: #d4d4d4;
+    }
+    #chat-form {
+      display: flex;
+      margin-top: 10px;
+    }
+    #message {
+      flex-grow: 1;
+      padding: 10px;
+      border: 1px solid #333;
+      border-radius: 5px;
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+    }
+    button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      border: none;
+      background-color: #007acc;
+      color: #ffffff;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005f99;
+    }
+    /* CSS for the spinner animation */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 1s ease-in-out infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* Markdown-enhanced bot output */
+    .bot strong {
+      color: #80cbc4;
+    }
+    .bot span {
+      white-space: pre-wrap;
+      font-family: "Courier New", monospace;
+    }
+    /* Modal styling for username input */
+    #nameModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #nameModalContent {
+      background-color: #1e1e1e;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    #nameModalContent input {
+      width: 80%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #333;
+      border-radius: 5px;
+      background-color: #121212;
+      color: #e0e0e0;
+    }
+    #nameModalContent button {
+      padding: 10px 20px;
+      border: none;
+      background-color: #007acc;
+      color: #ffffff;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #nameModalContent button:hover {
+      background-color: #005f99;
+    }
+  </style>
+  <!-- Include Marked.js for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <!-- Username Modal -->
+  <div id="nameModal">
+    <div id="nameModalContent">
+      <h2>Welcome!</h2>
+      <p>Please enter your name to start chatting:</p>
+      <input type="text" id="userNameInput" placeholder="Your name" required>
+      <br>
+      <button id="startChatButton">Start Chatting</button>
+    </div>
+  </div>
+
+  <!-- Chat Area -->
+  <div id="chat">
+    <h1>Chat with DeepSeek‑R1</h1>
+    <div id="messages"></div>
+    <form id="chat-form">
+      <input type="text" id="message" placeholder="Type your message here" required autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    let userName = "";
+    const botName = "DeepSeek‑R1";
+
+    // Elements for the username modal
+    const nameModal = document.getElementById("nameModal");
+    const startChatButton = document.getElementById("startChatButton");
+    const userNameInput = document.getElementById("userNameInput");
+    const chatDiv = document.getElementById("chat");
+
+    // When the user clicks "Start Chatting", store the name and show the chat area.
+    startChatButton.addEventListener("click", function() {
+      const name = userNameInput.value.trim();
+      if (name === "") {
+        alert("Please enter your name.");
+        return;
+      }
+      userName = name;
+      nameModal.style.display = "none";
+      chatDiv.style.display = "block";
+      appendMessage("bot", `Hello ${userName}, welcome to the chat!`);
+    });
+
+    const form = document.getElementById("chat-form");
+    const messageInput = document.getElementById("message");
+    const messagesDiv = document.getElementById("messages");
+
+    // Append a new message to the chat
+    function appendMessage(sender, text) {
+      const messageDiv = document.createElement("div");
+      messageDiv.className = "message " + sender;
+      let nameLabel = sender === "user" ? userName : botName;
+      if (sender === "bot") {
+        messageDiv.innerHTML = `<strong>${nameLabel}:</strong> <span>${marked.parse(text)}</span>`;
+      } else {
+        messageDiv.innerHTML = `<strong>${nameLabel}:</strong> <span>${text}</span>`;
+      }
+      messagesDiv.appendChild(messageDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Append a temporary "Thinking..." message with animation
+    function appendLoadingMessage() {
+      const loadingDiv = document.createElement("div");
+      loadingDiv.className = "message bot";
+      loadingDiv.id = "loading-message";
+      loadingDiv.innerHTML = `<strong>${botName}:</strong> <span>Thinking... <span class="spinner"></span></span>`;
+      messagesDiv.appendChild(loadingDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return loadingDiv;
+    }
+
+    // Handle form submission and chat logic
+    form.addEventListener("submit", function(event) {
+      event.preventDefault();
+      const userMessage = messageInput.value.trim();
+      if (userMessage === "") return;
+      appendMessage("user", userMessage);
+      messageInput.value = "";
+      const loadingMessage = appendLoadingMessage();
+      fetch("/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: userMessage })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (loadingMessage) loadingMessage.remove();
+        if (data.reply) {
+          appendMessage("bot", data.reply);
+        } else {
+          appendMessage("bot", "Sorry, something went wrong.");
+        }
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        if (loadingMessage) loadingMessage.remove();
+        appendMessage("bot", "Sorry, an error occurred.");
+      });
+    });
+  </script>
+</body>
+</html>
