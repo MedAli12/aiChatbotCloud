@@ -29,6 +29,7 @@
       height: 500px;
       overflow-y: scroll;
       background-color: #121212;
+      margin-bottom: 10px;
     }
     .message {
       margin: 10px 0;
@@ -129,6 +130,19 @@
     #nameModalContent button:hover {
       background-color: #005f99;
     }
+    /* Save chat button styling */
+    #saveChatButton {
+      margin-bottom: 10px;
+      padding: 10px 20px;
+      border: none;
+      background-color: #28a745;
+      color: #ffffff;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #saveChatButton:hover {
+      background-color: #218838;
+    }
   </style>
   <!-- Include Marked.js for Markdown parsing -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -148,6 +162,9 @@
   <!-- Chat Area -->
   <div id="chat">
     <h1>Chat with DeepSeek‑R1</h1>
+    <!-- Save Chat History Button -->
+    <button id="saveChatButton">Save Chat History</button>
+    <!-- Chat History Panel -->
     <div id="messages"></div>
     <form id="chat-form">
       <input type="text" id="message" placeholder="Type your message here" required autocomplete="off">
@@ -181,8 +198,9 @@
     const form = document.getElementById("chat-form");
     const messageInput = document.getElementById("message");
     const messagesDiv = document.getElementById("messages");
+    const saveChatButton = document.getElementById("saveChatButton");
 
-    // Append a new message to the chat
+    // Append a new message to the chat history panel
     function appendMessage(sender, text) {
       const messageDiv = document.createElement("div");
       messageDiv.className = "message " + sender;
@@ -237,6 +255,38 @@
         appendMessage("bot", "Sorry, an error occurred.");
       });
     });
+
+    // Function to send chat history to backend for cloud storage
+    function saveChatHistoryToCloud() {
+      let chatHistory = "";
+      const messages = messagesDiv.querySelectorAll(".message");
+      messages.forEach(msg => {
+        chatHistory += msg.textContent + "\n";
+      });
+      // Send the chat history to the backend via POST request
+      fetch("/save_chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ chat_history: chatHistory })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if(data.message){
+          alert(data.message);
+        } else {
+          alert("Failed to save chat history.");
+        }
+      })
+      .catch(error => {
+        console.error("Error saving chat history:", error);
+        alert("An error occurred while saving chat history.");
+      });
+    }
+
+    // Event listener for Save Chat button
+    saveChatButton.addEventListener("click", saveChatHistoryToCloud);
   </script>
 </body>
 </html>
